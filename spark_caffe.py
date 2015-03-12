@@ -28,7 +28,7 @@ def main(argv):
     conf.setExecutorEnv("GOMP_CPU_AFFINITY", "0-15")
     conf.setExecutorEnv("OMP_NUM_THREADS", "16")
 
-    pycaffe_dir = os.path.dirname(__file__)
+    pycaffe_dir = os.path.dirname("/home/ideal/caffe-memory/python/ImageClassification")
 
     parser = argparse.ArgumentParser()
     # Required arguments: input and output files.
@@ -72,7 +72,7 @@ def main(argv):
     parser.add_argument(
         "--mean_file",
         default=os.path.join(pycaffe_dir,
-                             'caffe/imagenet/ilsvrc_2012_mean.npy'),
+                             'ImageClassification/caffe/imagenet/ilsvrc_2012_mean.npy'),
         help="Data set image mean of H x W x K dimensions (numpy array). " +
              "Set to '' for no mean subtraction."
     )
@@ -100,7 +100,7 @@ def main(argv):
              "is given as the input file."
     )
     args = parser.parse_args()
-    sys.path.append('/usr/local/lib/python2.7/site-packages')
+    #sys.path.append('/usr/local/lib/python2.7/site-packages')
 
     image_dims = [int(s) for s in args.images_dim.split(',')]
 
@@ -116,7 +116,7 @@ def main(argv):
             image_dims=image_dims, gpu=args.gpu, mean=mean,
             input_scale=args.input_scale, raw_scale=args.raw_scale,
             channel_swap=channel_swap)
-	return classifier.predict(s)	
+	return classifier.predict(s,False)	
 
     if args.gpu:
         print 'GPU mode'
@@ -134,10 +134,16 @@ def main(argv):
     imgs = imgs.map(lambda s: (s[0],list(s[1]))) 
     # Classify.
     predicts = imgs.map(lambda s: (s[0],myFunc(s[1])))
+    class_name = []
+    file = open("synset_words.txt")
+    for line in file:
+	class_name.append(line)
     results = predicts.collect()
     for s in results:
     	for i in range(0,batch_size):
        		print s[0]*batch_size + i, ' predicted class:', s[1][i].argmax()
+       		print s[0]*batch_size + i, ' predicted class:', class_name[s[1][i].argmax()]
+		
     
     print "Done in %.2f s." % (time.time() - start)
     
