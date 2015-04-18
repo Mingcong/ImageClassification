@@ -59,7 +59,6 @@ def main(argv):
     )
     parser.add_argument(
         "--gpu",
-        default='True',
         action='store_true',
         help="Switch for gpu computation."
     )
@@ -122,10 +121,13 @@ def main(argv):
 	class_name.append(line)
     def myFunc(s):
     	# Make classifier.
+	print "now time is" + (time.ctime())
+	s1 = time.time()
     	classifier = caffe.Classifier(args.model_def, args.pretrained_model,
             image_dims=image_dims, gpu=args.gpu, mean=mean,
             input_scale=args.input_scale, raw_scale=args.raw_scale,
             channel_swap=channel_swap)
+	print "Create classifier in %.2f s." % (time.time() - s1)
 	return classifier.predict(s,False)	
     def myParse(s):
 	out = []
@@ -157,7 +159,7 @@ def main(argv):
     #results = parsePredicts.collect()
     #for s in results:
     #	print s	
-    print "Done in %.2f s." % (time.time() - start)
+    print "Done total time is  %.2f s." % (time.time() - start)
     
     sc.stop()
 

@@ -6,6 +6,7 @@ Classifier is an image classifier specialization of Net.
 import numpy as np
 
 import caffe
+import time
 
 
 class Classifier(caffe.Net):
@@ -46,7 +47,7 @@ class Classifier(caffe.Net):
         self.image_dims = image_dims
 
 
-    def predict(self, inputs, oversample=True):
+    def predict(self, inputs, oversample=False):
         """
         Predict classification probabilities of inputs.
 
@@ -60,14 +61,15 @@ class Classifier(caffe.Net):
                      for N images and C classes.
         """
         # Scale to standardize input dimensions.
-	
-
+	s1 = time.time()
         input_ = np.zeros((len(inputs),
             self.image_dims[0], self.image_dims[1], inputs[0].shape[2]),
             dtype=np.float32)
+	s11 = time.time()
         for ix, in_ in enumerate(inputs):
             input_[ix] = caffe.io.resize_image(in_, self.image_dims)
 
+	print "resize using  %.2f s." % (time.time() - s11)
         if oversample:
             # Generate center, corner, and mirrored crops.
             input_ = caffe.io.oversample(input_, self.crop_dims)
@@ -83,14 +85,19 @@ class Classifier(caffe.Net):
         # Classify
         caffe_in = np.zeros(np.array(input_.shape)[[0,3,1,2]],
                             dtype=np.float32)
+	s2 = time.time()
         for ix, in_ in enumerate(input_):
             caffe_in[ix] = self.preprocess(self.inputs[0], in_)
+	print "preorcess using  %.2f s." % (time.time() - s2)
+	
+	start = time.time()
         out = self.forward_all(**{self.inputs[0]: caffe_in})
+	print "CPU/GPU using  %.2f s." % (time.time() - start)
         predictions = out[self.outputs[0]].squeeze(axis=(2,3))
 
         # For oversampling, average predictions across crops.
         if oversample:
             predictions = predictions.reshape((len(predictions) / 10, 10, -1))
             predictions = predictions.mean(1)
-
+	print "processing using  %.2f s." % (time.time() - s1)
         return predictions
