@@ -33,6 +33,10 @@ def main(argv):
         help="Input image, directory, or npy."
     )
     parser.add_argument(
+        "num_partitions",
+        help="the size of Batch Processing."
+    )
+    parser.add_argument(
         "batch_size",
         help="the size of Batch Processing."
     )
@@ -44,17 +48,18 @@ def main(argv):
     parser.add_argument(
         "--model_def",
         default=os.path.join(pycaffe_dir,
-                "../models/bvlc_reference_caffenet/deploy.prototxt"),
+                "/home/ideal/caffe-memory/models/bvlc_alexnet/deploy.prototxt"),
         help="Model definition file."
     )
     parser.add_argument(
         "--pretrained_model",
         default=os.path.join(pycaffe_dir,
-                "../models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel"),
+                "/home/ideal/ramdisk/bvlc_alexnet.caffemodel"),
         help="Trained model weights file."
     )
     parser.add_argument(
         "--gpu",
+        default='True',
         action='store_true',
         help="Switch for gpu computation."
     )
@@ -72,7 +77,7 @@ def main(argv):
     parser.add_argument(
         "--mean_file",
         default=os.path.join(pycaffe_dir,
-                             'ImageClassification/caffe/imagenet/ilsvrc_2012_mean.npy'),
+                             '/home/ideal/ImageClassification/caffe/imagenet/ilsvrc_2012_mean.npy'),
         help="Data set image mean of H x W x K dimensions (numpy array). " +
              "Set to '' for no mean subtraction."
     )
@@ -100,7 +105,6 @@ def main(argv):
              "is given as the input file."
     )
     args = parser.parse_args()
-    #sys.path.append('/usr/local/lib/python2.7/site-packages')
 
     image_dims = [int(s) for s in args.images_dim.split(',')]
 
@@ -111,6 +115,7 @@ def main(argv):
         channel_swap = [int(s) for s in args.channel_swap.split(',')]
 
     batch_size = int(args.batch_size)
+    num_partitions = int(args.num_partitions)
     class_name = []
     file = open("synset_words.txt")
     for line in file:
@@ -125,17 +130,23 @@ def main(argv):
     def myParse(s):
 	out = []
 	for i in range(0, batch_size):
- 		out.append((str(s[0]*batch_size+i),class_name[s[1][i].argmax()]))		
+ 		out.append((output_name[s[0]*batch_size+i],class_name[s[1][i].argmax()]))		
 	return out
     if args.gpu:
-        print 'GPU mode'
+        print '*******************************************GPU mode**********************************************'
+
+    def hash_domain(s):
+	#print s[-11:-5]
+        return (int(string.atoi(s[-13:-5])/batch_size))
 
     # Load numpy array (.npy), directory glob (*.jpg), or image file.
     args.input_file = os.path.expanduser(args.input_file)
     start = time.time()
-    L = sc.binaryFiles(args.input_file + '/*.' + args.ext)
-    #L = sc.binaryFiles('hdfs://dirt06:9000/100/ILSVRC2012_test_0000009*')
-    #L = sc.binaryFiles('hdfs://localhost:9000/*.JPEG').take(batch_size)
+    
+    L = sc.binaryFiles(args.input_file + '/*.' + args.ext).partitionBy(num_partitions, hash_domain)
+    #L = sc.binaryFiles(args.input_file + '/*.' + args.ext)
+    output_name = L.map(lambda s:s[0]).collect()
+
     img = L.map(lambda s: (int(string.atoi(s[0][-13:-5])/batch_size),cv2.imdecode(np.asarray(bytearray(s[1]),dtype=np.uint8),1)/255.0))
     imgs = img.groupByKey()
     imgs = imgs.map(lambda s: (s[0],list(s[1]))) 
